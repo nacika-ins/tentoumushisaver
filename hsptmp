@@ -1,0 +1,208 @@
+#include "hspcv.as"
+#include "mod_wrun.hsp"
+#packopt name "ひよこせーばー"
+#packopt type 2
+#packopt hide 1
+#epack "copy.gif"
+#epack "suuji.gif"
+#uselib "user32.dll"
+#func SetTimer "SetTimer" sptr,sptr,sptr,sptr
+#func CharLower "CharLowerA" sptr
+#define WM_TIMER        $00000113
+
+// --- スクリーンセーバーの名前 ---
+        sctitle ="ひよこせーばー"
+// --------------------------------
+
+        //二重起動防止
+        if wrun() == 0{
+                end
+        }
+        onexit *Owari
+
+        prm = dir_cmdline    ;パラメータ取得
+        getstr dm, prm, 0, '/'
+        prm = strmid(prm, strsize, 1)
+        CharLower varptr(prm)
+#ifdef _debug
+        if prm == "" : prm = "s"
+#else
+        if prm == "" : prm = "c"
+#endif
+        switch prm
+    
+                case "c"
+                        // --- 設定 ---
+                        
+                                dialog "このスクリーンセーバーには、設定できるオプションがありません。", 1, sctitle : swbreak
+                                sx = 320
+                                sy = 200
+                                screen 0, sx, sy, 6, ginfo_dispx-sx>>1, ginfo_dispy-sy>>1
+                                title sctitle
+                                syscolor 15 : boxf
+                                color : boxf 0, 0, sx, 60
+                                color 255, 255, 255 : pos 10 , 10 : mes "スクリーンセーバー\n Ver 1.00   2009 / 01 / 01"
+                                gsel 0, 1
+                                stop
+
+                        // ------------
+                        swbreak
+                        
+                case "p"
+                case "s"
+                        //フルスクリーン
+                        dx = ginfo_dispx                //画面横サイズ
+                        dy = ginfo_dispy                //画面縦サイズ
+                        ms = 100                                       //スクリーンセーバーの描画間隔（ミリ秒）
+                        thrm = 5                                //マウスを動かしたと感じ取る閾値
+
+
+
+						cvload "hiyoko.jpg", 0                     ; 元画像の読み込み
+					  cvgetinfo tentx, 0, CVOBJ_INFO_SIZEX
+					  cvgetinfo tenty, 0, CVOBJ_INFO_SIZEY
+					  cx = (tenty-tentx)/2: cy = (tenty-tenty)/2
+						  buffer 2, tentx, tenty
+						  buffer 3, tentx, tenty
+						  buffer 4
+						  picload "suuji.gif"
+						  suujix = ginfo_winx
+						  suujiy = ginfo_winy
+						  cvbuffer 1, tentx, tenty                  ; 回転用cvバッファ
+						
+						  cvarea 0, 0, tentx, tenty
+						  ang = 0.0
+
+						
+
+                        if prm == "s"{
+                                bgscr 0, dx, dy, 2, 0, 0
+                                title ""+sctitle
+                                tmx = ginfo_mx                                  //マウスの横の位置を保持
+                                tmy = ginfo_my                                  //マウスの縦の位置を保持
+                                onkey *Key
+                                onclick *Click
+                        } else {
+                                buffer 1, dx, dy, 2, 0, 0
+                                title ""+sctitle
+                        }
+                        
+                        // --- スクリーンセーバー開始前 ---
+                        		count = 0.1
+								pos dx-226>>1, dy-30 : picload "copy.gif", 1
+								
+                                
+                        // --------------------------------
+                        gsel 0
+                        oncmd gosub *TimerLoop, WM_TIMER
+                        SetTimer hwnd, 1, ms, 0
+                        stop
+                        swbreak
+
+    swend
+        wrunend
+
+*TimerLoop
+
+        if prm == "s" {
+                //マウスを動かしたかキーボードを押したか
+                if (abs(tmx-ginfo_mx)>=thrm)|(abs(tmy-ginfo_my)>=thrm){
+                        wrunend
+                }
+        }else{
+                gsel 1
+        }
+        // --- フルスクリーン描画 ---
+
+
+				//gmode 0, tentx, tenty, 1
+				//pos (dx-tentx>>1)+tentx/2, (dy-tenty>>1)+tenty/2
+				//grotate 2, 0, 0, count*0.034*3.14, tentx, tenty
+				
+				
+				#ifdef _debug
+				//color 255, 255, 255
+				//mes count
+				#endif
+				if time != gettime(6) {
+					redraw 0
+					gosub *TentoDraw	//てんとう虫回転
+					gosub *SuujiDraw		//数字描画
+					redraw 1
+				}
+
+				
+ 				time = gettime(6)
+				
+        // --------------------------
+
+        if prm =="s" {
+                 tmx = ginfo_mx                                  //マウスの横の位置を保持
+       			 tmy = ginfo_my                                  //マウスの縦の位置を保持
+        }
+    
+    if prm == "p" {
+            gsel 0
+                pos 0, 0 : gzoom 152, 112, 1, 0, 0, dx, dy, 1 
+                gsel 1
+    }
+
+    if start == 0 : start = 1 : gsel 0 , 2
+        return
+
+*Key
+*Click
+*Owari
+        wrunend
+
+
+*TentoDraw
+	color 255, 255, 255
+	boxf dx-600>>1, dy-118>>1, (dx-600>>1)+610, (dy-118>>1)+108
+	gsel 2: cvputimg 1		//buffer２ に1を描画
+	cvcopy 0, cx, cy, 1, CVCOPY_SET						//0から1へCVをコピー
+	cvrotate -double(gettime(6))*6.0, 1.0, 0.0, 0.0, CV_INTER_LINEAR|CV_WARP_FILL_OUTLIERS, 1		//1を回転
+	gsel 3:cvgetimg 1			//1を描画
+	if prm == "s" {
+		gsel 0
+	} else {
+		gsel 1
+	}
+	gmode 2
+	pos (dx-tentx>>1), (dy-tenty>>1)
+	gcopy 3, 0, 0, tentx, tenty
+	return
+
+*SuujiDraw
+	gmode 7, suujix/2, 108, 256
+
+	//repeat 10
+	//	pos 100*cnt, 0 : gcopy 4, 0, 147*cnt
+	//loop
+
+	
+	hour = strf("%02d", gettime(4))			//時間
+	min = strf("%02d", gettime(5))		//分
+	sec = strf("%02d", gettime(6))		//秒
+
+	#ifdef _debug
+	color 255, 255, 255
+	boxf 0, 0, 100, dy
+	color
+	pos 0, 0
+	mes hour+"  "+(peek(hour, 0)-48)+" "+(peek(hour, 1)-48)
+	mes min+"  "+(peek(min, 0)-48)+" "+(peek(min, 1)-48)
+	mes sec+"  "+(peek(sec, 0)-48)+" "+(peek(sec, 1)-48)
+	#endif
+
+
+	nex = 90
+	hei = 147
+	
+	pos dx-600>>1, dy-118>>1 : gcopy 4, 0, hei*(peek(hour, 0)-48)
+	pos (dx-600>>1)+nex, dy-118>>1 : gcopy 4, 0, hei*(peek(hour, 1)-48):
+	pos (dx-600>>1)+nex*2+30, dy-118>>1 : gcopy 4, 0, hei*(peek(min, 0)-48)
+	pos (dx-600>>1)+nex*3+30, dy-118>>1 : gcopy 4, 0, hei*(peek(min, 1)-48)
+	pos (dx-600>>1)+nex*4+60, dy-118>>1 : gcopy 4, 0, hei*(peek(sec, 0)-48)
+	pos (dx-600>>1)+nex*5+60, dy-118>>1 : gcopy 4, 0, hei*(peek(sec, 1)-48)
+	return
